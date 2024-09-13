@@ -1,0 +1,21 @@
+version: '3'
+services:
+  client:
+    build: ./client
+    ports:
+      - '8081:8081'
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+
+  server:
+    build: ./server
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
