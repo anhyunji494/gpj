@@ -12,7 +12,6 @@ import {
   login,
   logout,
   getProfile as getKakaoProfile,
-  shippingAddresses as getKakaoShippingAddresses,
   unlink,
 } from '@react-native-seoul/kakao-login';
 
@@ -74,8 +73,6 @@ const App = () => {
 
   const signOutWithKakao = () => handleApiCall(logout, 'Logout successful');
   const getProfile = () => handleApiCall(getKakaoProfile, 'Profile retrieved');
-  const getShippingAddresses = () =>
-    handleApiCall(getKakaoShippingAddresses, 'Shipping addresses retrieved');
   const unlinkKakao = () => handleApiCall(unlink, 'Kakao account unlinked');
 
   const renderButton = (title: string, onPress: () => void) => (
@@ -86,19 +83,8 @@ const App = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.resultContainer}>
-        <ScrollView>
-          {loading && <ActivityIndicator size="large" color="#0000ff" />}
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : (
-            <Text>{result}</Text>
-          )}
-        </ScrollView>
-      </View>
       {renderButton('카카오 로그인', signInWithKakao)}
       {renderButton('프로필 조회', getProfile)}
-      {renderButton('배송주소록 조회', getShippingAddresses)}
       {renderButton('링크 해제', unlinkKakao)}
       {renderButton('카카오 로그아웃', signOutWithKakao)}
     </View>
