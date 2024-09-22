@@ -1,5 +1,12 @@
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import React, {useState} from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+} from 'react-native';
 import axios from 'axios';
 import {
   login,
@@ -9,101 +16,94 @@ import {
   unlink,
 } from '@react-native-seoul/kakao-login';
 
+const API_URL = 'http://10.0.2.2:3000'; // Android 에뮬레이터용 서버 주소
+
+const api = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
+});
+
 const App = () => {
   const [result, setResult] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleApiCall = async (
+    apiFunc: () => Promise<any>,
+    successMessage: string,
+  ) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiFunc();
+      setResult(
+        typeof response === 'string'
+          ? response
+          : JSON.stringify(response, null, 2),
+      );
+      console.log(successMessage, response);
+    } catch (err) {
+      console.error(`Error in ${apiFunc.name}:`, err);
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const signInWithKakao = async (): Promise<void> => {
-    try {
+    await handleApiCall(async () => {
       const token = await login();
-      console.log(token);
+      console.log('Kakao token:', token);
 
-      const response = await axios.post('/user/login', {
-        data: JSON.stringify(token),
-      });
-
-      // 성공 처리
-      const data = response.data;
-      console.log('Login successful:', data);
-
-      // 여기에 로그인 성공 후 처리 로직을 추가하세요 (예: 상태 업데이트, 네비게이션 등)
-    } catch (err) {
-      console.error('Login error:', err);
-      // 여기에 에러 처리 로직을 추가하세요 (예: 사용자에게 에러 메시지 표시)
-    }
+      try {
+        const response = await api.post('/auth/kakao/callback', {token});
+        console.log('Server response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Axios error details:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers,
+          config: error.config,
+        });
+        throw error; // 에러를 다시 던져서 handleApiCall에서 처리하도록 함
+      }
+    }, 'Login successful');
   };
 
-  const signOutWithKakao = async (): Promise<void> => {
-    try {
-      const message = await logout();
+  const signOutWithKakao = () => handleApiCall(logout, 'Logout successful');
+  const getProfile = () => handleApiCall(getKakaoProfile, 'Profile retrieved');
+  const getShippingAddresses = () =>
+    handleApiCall(getKakaoShippingAddresses, 'Shipping addresses retrieved');
+  const unlinkKakao = () => handleApiCall(unlink, 'Kakao account unlinked');
 
-      setResult(message);
-    } catch (err) {
-      console.error('signOut error', err);
-    }
-  };
-
-  const getProfile = async (): Promise<void> => {
-    try {
-      const profile = await getKakaoProfile();
-
-      setResult(JSON.stringify(profile));
-    } catch (err) {
-      console.error('signOut error', err);
-    }
-  };
-
-  const getShippingAddresses = async (): Promise<void> => {
-    try {
-      const shippingAddresses = await getKakaoShippingAddresses();
-
-      setResult(JSON.stringify(shippingAddresses));
-    } catch (err) {
-      console.error('signOut error', err);
-    }
-  };
-
-  const unlinkKakao = async (): Promise<void> => {
-    try {
-      const message = await unlink();
-
-      setResult(message);
-    } catch (err) {
-      console.error('signOut error', err);
-    }
-  };
+  const renderButton = (title: string, onPress: () => void) => (
+    <Pressable style={styles.button} onPress={onPress} disabled={loading}>
+      <Text style={styles.text}>{title}</Text>
+    </Pressable>
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.resultContainer}>
         <ScrollView>
-          <Text>{result}</Text>
-          <View style={{height: 100}} />
+          {loading && <ActivityIndicator size="large" color="#0000ff" />}
+          {error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : (
+            <Text>{result}</Text>
+          )}
         </ScrollView>
       </View>
-      <Pressable
-        style={styles.button}
-        onPress={() => {
-          signInWithKakao();
-        }}>
-        <Text style={styles.text}>카카오 로그인</Text>
-      </Pressable>
-      <Pressable style={styles.button} onPress={() => getProfile()}>
-        <Text style={styles.text}>프로필 조회</Text>
-      </Pressable>
-      <Pressable style={styles.button} onPress={() => getShippingAddresses()}>
-        <Text style={styles.text}>배송주소록 조회</Text>
-      </Pressable>
-      <Pressable style={styles.button} onPress={() => unlinkKakao()}>
-        <Text style={styles.text}>링크 해제</Text>
-      </Pressable>
-      <Pressable style={styles.button} onPress={() => signOutWithKakao()}>
-        <Text style={styles.text}>카카오 로그아웃</Text>
-      </Pressable>
+      {renderButton('카카오 로그인', signInWithKakao)}
+      {renderButton('프로필 조회', getProfile)}
+      {renderButton('배송주소록 조회', getShippingAddresses)}
+      {renderButton('링크 해제', unlinkKakao)}
+      {renderButton('카카오 로그아웃', signOutWithKakao)}
     </View>
   );
 };
-
-export default App;
 
 const styles = StyleSheet.create({
   container: {
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   resultContainer: {
-    flexDirection: 'column',
+    flex: 1,
     width: '100%',
     padding: 24,
   },
@@ -130,4 +130,10 @@ const styles = StyleSheet.create({
   text: {
     textAlign: 'center',
   },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+  },
 });
+
+export default App;
